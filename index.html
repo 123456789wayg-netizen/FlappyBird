@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Glow - 豪華特效版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050510;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            max-height: 800px;
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #101030 0%, #050515 100%);
+        }
+        /* 華麗霓虹分數顯示 */
+        #scoreBoard {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            font-family: 'Arial Black', Impact, sans-serif;
+        }
+        .neon-text {
+            font-size: 56px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 
+                0 0 7px #fff,
+                0 0 10px #fff,
+                0 0 21px #00f3ff,
+                0 0 42px #00f3ff,
+                0 0 82px #00f3ff,
+                0 0 92px #00f3ff,
+                0 0 102px #00f3ff;
+            animation: pulse 2s infinite alternate;
+            letter-spacing: 2px;
+        }
+        #shieldIndicator {
+            margin-top: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #00f3ff;
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #shieldIndicator.active {
+            opacity: 1;
+        }
+        /* 遊戲初始與結束大螢幕 */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(5, 5, 20, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 20;
+            transition: opacity 0.5s ease;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        .hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+        h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00f3ff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+            font-family: 'Arial Black', sans-serif;
+        }
+        .instruction {
+            font-size: 16px;
+            color: #8fa0dd;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .btn {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(45deg, #00f3ff, #0066ff);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.8);
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        #gameOverPanel h2 {
+            font-size: 36px;
+            color: #ff0055;
+            text-shadow: 0 0 15px rgba(255, 0, 85, 0.6);
+            margin-bottom: 5px;
+        }
+        .final-score {
+            font-size: 24px;
+            color: #fff;
+            margin-bottom: 25px;
+        }
+        .final-score span {
+            color: #00f3ff;
+            font-weight: bold;
+            font-size: 32px;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+<div id="gameContainer">
+    <!-- 華麗分數看板 -->
+    <div id="scoreBoard">
+        <div id="scoreDisplay" class="neon-text">0</div>
+        <div id="shieldIndicator">🛡️ SHIELD ACTIVE</div>
+    </div>
+
+    <!-- 開始畫面 -->
+    <div id="startPanel" class="overlay">
+        <h1>FLAPPY GLOW</h1>
+        <p class="instruction">
+            ✨ 豪華特效休閒體驗 ✨<br><br>
+            🟢 低難度設計：超寬安全通道、輕盈重力<br>
+            🛡️ 預設自帶護盾，路途中可吃【閃耀護盾】補血<br>
+            🎹 內建 Web Audio 奢華霓虹電音聲學引擎
+        </p>
+        <button class="btn" id="startBtn">START GAME</button>
+    </div>
+
+    <!-- 結束畫面 -->
+    <div id="gameOverPanel" class="overlay hide">
+        <h2>GAME OVER</h2>
+        <div class="final-score">SCORE: <span id="finalScore">0</span></div>
+        <button class="btn" id="restartBtn">REPLAY</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+/**
+ * Web Audio API 音效引擎 (無需加載外部音效檔)
+ */
+class SoundEngine {
+    constructor() {
+        this.ctx = null;
+    }
+    init() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+    playJump() {
+        if (!this.ctx) return;
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.15);
+        
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+    }
+    playScore() {
+        if (!this.ctx) return;
+        // 華麗大和弦得分音 (雙音階)
+        let now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + i * 0.05);
+            osc.frequency.setValueAtTime(freq * 2, now + i * 0.05 + 0.1);
+            
+            gain.gain.setValueAtTime(0.1, now + i * 0.05);
+            gain.gain.linearRampToValueAtTime(0.01, now + i * 0.05 + 0.3);
+            
+            osc.start(now + i * 0.05);
+            osc.stop(now + i * 0.05 + 0.3);
+        });
+    }
+    playShieldUp() {
+        if (!this.ctx) return;
+        let now = this.ctx.currentTime;
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.4);
+        
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+        
+        osc.start();
+        osc.stop(now + 0.4);
+    }
+    playShieldBreak() {
+        if (!this.ctx) return;
+        let now = this.ctx.currentTime;
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.linearRampToValueAtTime(150, now + 0.3);
+        
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+        
+        osc.start();
+        osc.stop(now + 0.3);
+    }
+    playExplosion() {
+        if (!this.ctx) return;
+        let now = this.ctx.currentTime;
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.linearRampToValueAtTime(40, now + 0.5);
+        
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+        
+        osc.start();
+        osc.stop(now + 0.5);
+    }
+}
+
+const sounds = new SoundEngine();
+
+// Canvas 配置
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    const container = document.getElementById('gameContainer');
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// 遊戲參數設定
+let gameState = 'START'; // START, PLAYING, GAMEOVER
+let score = 0;
+let bird;
+let pipes = [];
+let items = [];
+let particles = [];
+let stars = [];
+let frameCount = 0;
+
+// 【低難度參數調整】
+const GRAVITY = 0.22;       // 輕盈重力，下墜慢
+const JUMP_STRENGTH = -5.8; // 跳躍力度舒適
+const PIPE_SPEED = 2.2;     // 水管移動速度緩慢
+const PIPE_SPACING = 280;   // 水管左右間距拉大，超寬敞
+const PIPE_GAP = 215;       // 上下安全通道超大
+
+// 初始化星空背景
+for (let i = 0; i < 40; i++) {
+    stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 1,
+        speed: Math.random() * 0.3 + 0.1
+    });
+}
+
+class Bird {
+    constructor() {
+        this.x = canvas.width * 0.25;
+        this.y = canvas.height / 2;
+        this.radius = 16;
+        this.velocity = 0;
+        this.hasShield = true; // 預設自帶一層安全護盾
+        this.angle = 0;
+        this.glowPulse = 0;
+    }
+    update() {
+        this.velocity += GRAVITY;
+        this.y += this.velocity;
+        this.glowPulse += 0.05;
+
+        // 飛行角度微調
+        if (this.velocity < 0) {
+            this.angle = Math.max(-0.3, this.velocity * 0.06);
+        } else {
+            this.angle = Math.min(0.5, this.velocity * 0.04);
+        }
+
+        // 邊界限制
+        if (this.y + this.radius > canvas.height) {
+            this.y = canvas.height - this.radius;
+            this.velocity = 0;
+        }
+        if (this.y - this.radius < 0) {
+            this.y = this.radius;
+            this.velocity = 0;
+        }
+
+        // 產生流星尾跡粒子
+        if (frameCount % 2 === 0) {
+            particles.push(new Particle(
+                this.x - 10, 
+                this.y + (Math.random() * 10 - 5), 
+                this.hasShield ? 'rgba(0, 243, 255, 0.6)' : 'rgba(255, 0, 255, 0.6)', 
+                Math.random() * 3 + 2,
+                -1.5,
+                (Math.random() - 0.5) * 0.5
+            ));
+        }
+    }
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        // 豪華本體發光
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.hasShield ? '#00f3ff' : '#ff00ff';
+
+        // 繪製賽博小鳥本體 (極簡科幻圓形艙風格)
+        let gradient = ctx.createRadialGradient(0, 0, 2, 0, 0, this.radius);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.4, this.hasShield ? '#00d2ff' : '#ff00aa');
+        gradient.addColorStop(1, this.hasShield ? '#0066ff' : '#660099');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 機械大眼睛
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(6, -4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#050515';
+        ctx.beginPath();
+        ctx.arc(8, -4, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 噴射小機翼
+        ctx.fillStyle = this.hasShield ? '#00f3ff' : '#ff00ff';
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.lineTo(-18, -8);
+        ctx.lineTo(-14, 6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+
+        // 繪製外層豪華能量護盾
+        if (this.hasShield) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.strokeStyle = 'rgba(0, 243, 255, ' + (0.5 + Math.sin(this.glowPulse) * 0.2) + ')';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00f3ff';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 10, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 護盾網格微弱流光
+            ctx.fillStyle = 'rgba(0, 243, 255, 0.05)';
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+    jump() {
+        this.velocity = JUMP_STRENGTH;
+        sounds.playJump();
+    }
+}
+
+class Pipe {
+    constructor(x) {
+        this.x = x;
+        // 確保通道不會太靠邊緣，方便休閒玩家
+        const minHeight = 100;
+        const maxHeight = canvas.height - PIPE_GAP - 100;
+        this.topLength = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+        this.width = 75;
+        this.passed = false;
+        this.hasSpawnedItem = false;
+    }
+    update() {
+        this.x -= PIPE_SPEED;
+    }
+    draw() {
+        ctx.save();
+        ctx.shadowBlur = 12;
+
+        // 上水管漸層與發光
+        let topGrad = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);
+        topGrad.addColorStop(0, '#ff00aa');
+        topGrad.addColorStop(0.5, '#ff0055');
+        topGrad.addColorStop(1, '#990033');
+        ctx.fillStyle = topGrad;
+        ctx.shadowColor = '#ff0055';
+        ctx.fillRect(this.x, 0, this.width, this.topLength);
+        // 上水管霓虹邊緣線
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, 0, this.width, this.topLength);
+
+        // 下水管漸層與發光
+        let bottomGrad = ctx.createLinearGradient(this.x, this.topLength + PIPE_GAP, this.x + this.width, canvas.height);
+        bottomGrad.addColorStop(0, '#00f3ff');
+        bottomGrad.addColorStop(0.5, '#0066ff');
+        bottomGrad.addColorStop(1, '#002299');
+        ctx.fillStyle = bottomGrad;
+        ctx.shadowColor = '#00f3ff';
+        const bottomY = this.topLength + PIPE_GAP;
+        ctx.fillRect(this.x, bottomY, this.width, canvas.height - bottomY);
+        // 下水管霓虹邊緣線
+        ctx.strokeRect(this.x, bottomY, this.width, canvas.height - bottomY);
+
+        ctx.restore();
+    }
+}
+
+/**
+ * 隨機生成的閃耀護盾道具
+ */
+class ShieldItem {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 14;
+        this.pulse = Math.random() * 10;
+        this.active = true;
+    }
+    update() {
+        this.x -= PIPE_SPEED; // 跟隨水管速度移動
+        this.pulse += 0.1;
+    }
+    draw() {
+        if (!this.active) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // 浮動呼吸燈發光
+        let scale = 1 + Math.sin(this.pulse) * 0.12;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#00f3ff';
+        
+        // 外層五角星/能量圈外殼
+        ctx.strokeStyle = '#00f3ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius * scale, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 內層核心微粒
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius * 0.5 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 繪製簡化護盾十字圖標
+        ctx.strokeStyle = '#00f3ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-5, 0); ctx.lineTo(5, 0);
+        ctx.moveTo(0, -5); ctx.lineTo(0, 5);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
+/**
+ * 粒子特效系統
+ */
+class Particle {
+    constructor(x, y, color, size, vx, vy) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.size = size;
+        this.vx = vx;
+        this.vy = vy;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.02 + 0.015;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= this.decay;
+    }
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// 觸發璀璨得分煙火特效
+function createScoreFireworks(x, y) {
+    const colors = ['#00f3ff', '#ff00ff', '#ffff00', '#00ff66', '#ffffff'];
+    const count = 30;
+    for (let i = 0; i < count; i++) {
+        let angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+        let speed = Math.random() * 4 + 2;
+        particles.push(new Particle(
+            x, y,
+            colors[Math.floor(Math.random() * colors.length)],
+            Math.random() * 4 + 2,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed
+        ));
+    }
+}
+
+// 觸發護盾碎裂/拾取衝擊波特效
+function createShieldShockwave(x, y, isBreak) {
+    const color = '#00f3ff';
+    const count = 40;
+    for (let i = 0; i < count; i++) {
+        let angle = Math.random() * Math.PI * 2;
+        let speed = isBreak ? (Math.random() * 5 + 3) : (Math.random() * 3 + 1);
+        particles.push(new Particle(
+            x, y, color,
+            Math.random() * 5 + 2,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed
+        ));
+    }
+}
+
+// 碰撞碎裂粒子
+function createExplosion(x, y) {
+    for (let i = 0; i < 50; i++) {
+        let angle = Math.random() * Math.PI * 2;
+        let speed = Math.random() * 6 + 1;
+        particles.push(new Particle(
+            x, y, '#ff0055',
+            Math.random() * 5 + 2,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed
+        ));
+    }
+}
+
+function updateUI() {
+    document.getElementById('scoreDisplay').innerText = score;
+    const ind = document.getElementById('shieldIndicator');
+    if (bird && bird.hasShield) {
+        ind.classList.add('active');
+    } else {
+        ind.classList.remove('active');
+    }
+}
+
+function initGame() {
+    score = 0;
+    frameCount = 0;
+    bird = new Bird();
+    pipes = [new Pipe(canvas.width + 100)];
+    items = [];
+    particles = [];
+    updateUI();
+}
+
+function gameLoop() {
+    if (gameState !== 'PLAYING') return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    frameCount++;
+
+    // 1. 繪製並更新緩慢星空背景
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    stars.forEach(s => {
+        s.x -= s.speed;
+        if (s.x < 0) s.x = canvas.width;
+        ctx.fillRect(s.x, s.y, s.size, s.size);
+    });
+
+    // 2. 更新並繪製小鳥
+    bird.update();
+    bird.draw();
+
+    // 3. 處理水管與路徑上的道具
+    if (frameCount % Math.floor(PIPE_SPACING / PIPE_SPEED) === 0) {
+        let newPipe = new Pipe(canvas.width);
+        pipes.push(newPipe);
+    }
+
+    // 水管及道具邏輯
+    for (let i = pipes.length - 1; i >= 0; i--) {
+        let p = pipes[i];
+        p.update();
+        p.draw();
+
+        // 在寬敞的水管中間【隨機生成護盾道具】 (45%機率生成，讓補血體驗極佳)
+        if (!p.hasSpawnedItem && p.x > canvas.width - 50 && !bird.hasShield) {
+            if (Math.random() < 0.45) {
+                let itemY = p.topLength + (PIPE_GAP / 2) + (Math.random() * 60 - 30);
+                items.push(new ShieldItem(p.x + p.width / 2, itemY));
+            }
+            p.hasSpawnedItem = true;
+        }
+
+        // 成功穿越水管得分
+        if (!p.passed && p.x + p.width < bird.x) {
+            score++;
+            p.passed = true;
+            sounds.playScore();
+            createScoreFireworks(bird.x + 40, bird.y); // 得分絢麗煙火
+            updateUI();
+        }
+
+        // 水管碰撞偵測
+        if (bird.x + bird.radius - 3 > p.x && bird.x - bird.radius + 3 < p.x + p.width) {
+            if (bird.y - bird.radius + 3 < p.topLength || bird.y + bird.radius - 3 > p.topLength + PIPE_GAP) {
+                // 如果有安全護盾，抵消一次死亡
+                if (bird.hasShield) {
+                    bird.hasShield = false;
+                    sounds.playShieldBreak();
+                    createShieldShockwave(bird.x, bird.y, true); // 護盾震碎特效
+                    // 將撞到的這根水管強制往後移或清除，防止連續卡死碰撞
+                    pipes.splice(i, 1);
+                    updateUI();
+                    continue;
+                } else {
+                    gameOver();
+                }
+            }
+        }
+
+        // 移除螢幕外水管
+        if (p.x + p.width < 0) pipes.splice(i, 1);
+    }
+
+    // 4. 處理護盾道具拾取
+    for (let j = items.length - 1; j >= 0; j--) {
+        let item = items[j];
+        item.update();
+        item.draw();
+
+        // 檢測小鳥是否吃到護盾道具
+        if (item.active) {
+            let dist = Math.hypot(bird.x - item.x, bird.y - item.y);
+            if (dist < bird.radius + item.radius + 5) {
+                item.active = false;
+                if (!bird.hasShield) {
+                    bird.hasShield = true;
+                    sounds.playShieldUp();
+                    createShieldShockwave(item.x, item.y, false); // 拾取擴散衝擊波
+                    updateUI();
+                }
+                items.splice(j, 1);
+                continue;
+            }
+        }
+
+        if (item.x + 30 < 0) items.splice(j, 1);
+    }
+
+    // 5. 更新並繪製爆破/尾跡粒子
+    for (let k = particles.length - 1; k >= 0; k--) {
+        let part = particles[k];
+        part.update();
+        part.draw();
+        if (part.alpha <= 0) particles.splice(k, 1);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    sounds.playExplosion();
+    createExplosion(bird.x, bird.y);
+    document.getElementById('finalScore').innerText = score;
+    document.getElementById('gameOverPanel').classList.remove('hide');
+}
+
+// 互動事件綁定
+function handleJump(e) {
+    if (e.type === 'keydown' && e.code !== 'Space') return;
+    
+    if (gameState === 'PLAYING') {
+        bird.jump();
+    } else if (gameState === 'START') {
+        sounds.init();
+        document.getElementById('startPanel').classList.add('hide');
+        gameState = 'PLAYING';
+        initGame();
+        gameLoop();
+    }
+    if(e.cancelable) e.preventDefault();
+}
+
+window.addEventListener('keydown', handleJump);
+canvas.addEventListener('touchstart', handleJump, { passive: false });
+canvas.addEventListener('mousedown', handleJump);
+
+document.getElementById('startBtn').addEventListener('click', (e) => {
+    sounds.init();
+    document.getElementById('startPanel').classList.add('hide');
+    gameState = 'PLAYING';
+    initGame();
+    gameLoop();
+    e.stopPropagation();
+});
+
+document.getElementById('restartBtn').addEventListener('click', (e) => {
+    document.getElementById('gameOverPanel').classList.add('hide');
+    gameState = 'PLAYING';
+    initGame();
+    gameLoop();
+    e.stopPropagation();
+});
+
+</script>
+</body>
+</html>
